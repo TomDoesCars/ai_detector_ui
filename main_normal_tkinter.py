@@ -116,7 +116,7 @@ class GUI:
                     r = requests.get(url=gpt2_url)
                     if r.status_code != 200:
                         #There is an error:
-                        self.status_window.delete("0.0","end")0
+                        self.status_window.delete("0.0","end")
                         self.status_window.insert("0.0","ERROR: GPT-2 model returned the following error on file"+filename+":\n"+str(r.status_code)+": "+str(r.reason)+".\nPlease remove file from folder and try again. Feel free to report this error to Tom if you think it is a bug.")
                         raise Exception
                     else:
@@ -130,7 +130,7 @@ class GUI:
                     r = requests.post(url=aicheatcheck_url,json=data)
                     if r.status_code != 200:
                         #There is an error:
-                        self.status_window.delete("0.0","end")0
+                        self.status_window.delete("0.0","end")
                         self.status_window.insert("0.0","ERROR: AICheatCheck model returned the following error on file"+filename+":\n"+str(r.status_code)+": "+str(r.reason)+".\nPlease remove file from folder and try again. Feel free to report this error to Tom if you think it is a bug.")
                         raise Exception
                     else:
