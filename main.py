@@ -59,6 +59,9 @@ class GUI:
         self.status_window = ctk.CTkTextbox(self.root)
         self.status_window.place(x=30.0,y=445.0,width=440.0,height=120.0)
 
+        self.show_graph_button.configure(state='disabled')
+        self.save_results_button.configure(state='disabled')
+
         self.root.mainloop()
 
     
@@ -74,6 +77,8 @@ class GUI:
         self.root.deiconify()
 
     def run_analysis(self):
+        self.show_graph_button.configure(state='disabled')
+        self.save_results_button.configure(state='disabled')
         self.analysis_results = []
         self.source_file_path = self.select_folder_entry.get()
         try:
@@ -98,7 +103,7 @@ class GUI:
             document_plaintext = [paragraph for paragraph in document_plaintext if len(paragraph)>2]
             return document_plaintext
 
-        def get_score(document: list) -> dict:
+        def get_score(document: list, filename: str) -> dict:
             gpt2_result=None
             aicheatcheck_result=None
 
@@ -110,16 +115,31 @@ class GUI:
                         gpt2_url += urllib.parse.quote(paragraph, safe="")+"=&"
                     gpt2_url = gpt2_url[:-1]    
                     r = requests.get(url=gpt2_url)
-                    gpt2_result = r.json()
-                    gpt2_result = gpt2_result['fake_probability']
+                    if r.status_code != 200:
+                        #There is an error:
+                        self.status_window.delete("0.0","end")
+                        self.status_window.insert("0.0","ERROR: GPT-2 model returned the following error on file"+filename+":\n"+str(r.status_code)+": "+str(r.reason)+".\nPlease remove file from folder and try again. Feel free to report this error to Tom if you think it is a bug.")
+                        raise ValueError
+                    else:
+                        gpt2_result = r.json()
+                        gpt2_result = gpt2_result['fake_probability']
 
                 if self.ai_cheat_check_option_checkbox.get():
                     #normal post request
                     aicheatcheck_url = "https://demo.aicheatcheck.com/api/detect"
                     data = {'text':("\n".join(document))}
                     r = requests.post(url=aicheatcheck_url,json=data)
-                    aicheatcheck_result = r.json()
-                    aicheatcheck_result = aicheatcheck_result['probability_fake']
+                    if r.status_code != 200:
+                        #There is an error:
+                        self.status_window.delete("0.0","end")
+                        self.status_window.insert("0.0","ERROR: AICheatCheck model returned the following error on file"+filename+":\n"+str(r.status_code)+": "+str(r.reason)+".\nPlease remove file from folder and try again. Feel free to report this error to Tom if you think it is a bug.")
+                        raise ValueError
+                    else:
+                        aicheatcheck_result = r.json()
+                        aicheatcheck_result = aicheatcheck_result['probability_fake']
+            except ValueError:
+                print('BROKEn')
+                raise Exception
             except:
                 self.status_window.delete("0.0","end")
                 self.status_window.insert("0.0","ERROR: There is an error in the returned value from the models. Check that you are connected to the internet, and that the selected documents contain valid text content.")
@@ -144,7 +164,7 @@ class GUI:
             update_window()
             current_essay = docx.Document(self.source_file_path+filename)
             current_essay_plaintext = get_plaintext(current_essay)
-            essay_score = get_score(current_essay_plaintext)
+            essay_score = get_score(current_essay_plaintext, filename)
             self.analysis_results.append({"Name":filename, "OpenAI-Generated Probability":essay_score})
 
         self.result_df = pd.json_normalize(self.analysis_results)
@@ -158,7 +178,12 @@ class GUI:
         except:
             pass
         self.status_window.insert("end","\n" + str(len(self.analysis_results)) + " files processed.\n")
+
+        self.show_graph_button.configure(state='normal')
+        self.save_results_button.configure(state='normal')
         self.root.update()
+
+
 
     def graph(self):
         self.graphing_df = self.result_df.sort_values(by=self.result_df.columns[1])
